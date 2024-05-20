@@ -1,78 +1,54 @@
 #!/usr/bin/python3
-"""This module defines a base class for all models in our hbnb clone"""
+"""This script is the base model"""
 import uuid
-from datetime import datetime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, DATETIME
-from models import storage_type
-
-Base = declarative_base()
+import datetime
+from models import storage
 
 
-class BaseModel:
-    """A base class for all hbnb models
-
-    Attributes:
-        id (sqlalchemy String): The BaseModel id.
-        created_at (sqlalchemy DateTime): The datetime at creation.
-        updated_at (sqlalchemy DateTime): The datetime of last update.
-    """
-    id = Column(String(60),
-                nullable=False,
-                primary_key=True,
-                unique=True)
-    created_at = Column(DATETIME,
-                        nullable=False,
-                        default=datetime.utcnow())
-    updated_at = Column(DATETIME,
-                        nullable=False,
-                        default=datetime.utcnow())
+class BaseModel():
+    ''''Class from which all other classes will inherit'''
 
     def __init__(self, *args, **kwargs):
-        """Instatntiates a new model"""
-        if not kwargs:
+        '''Initializes instance attributes'''
+
+        if len(kwargs) == 0:
             self.id = str(uuid.uuid4())
-            self.created_at = datetime.now()
-            self.updated_at = datetime.now()
+            self.created_at = datetime.datetime.now()
+            self.updated_at = datetime.datetime.now()
+            storage.new(self)
         else:
-            for k in kwargs:
-                if k in ['created_at', 'updated_at']:
-                    setattr(self, k, datetime.fromisoformat(kwargs[k]))
-                elif k != '__class__':
-                    setattr(self, k, kwargs[k])
-            if storage_type == 'db':
-                if not hasattr(kwargs, 'id'):
-                    setattr(self, 'id', str(uuid.uuid4()))
-                if not hasattr(kwargs, 'created_at'):
-                    setattr(self, 'created_at', datetime.now())
-                if not hasattr(kwargs, 'updated_at'):
-                    setattr(self, 'updated_at', datetime.now())
+            for key in kwargs.keys():
+                # check and escape the __class__ key
+                if key == "__class__":
+                    continue
+                else:
+                    # check and change the format for updated_at & created_at
+                    if key == "updated_at" or key == "created_at":
+                        kwargs[key] = datetime.datetime.strptime(
+                            kwargs[key], "%Y-%m-%dT%H:%M:%S.%f")
+                    # set the attributes of the instance
+                    setattr(self, key, kwargs[key])
+                # self.key = kwargs[key]
+                # print(f"{key}: {kwargs[key]}")
 
     def __str__(self):
-        """Returns a string representation of the instance"""
-        return '[{}] ({}) {}'.format(
-            self.__class__.__name__, self.id, self.__dict__)
+        '''Returns official string representation'''
+        return (f"[{self.__class__.__name__}] ({self.id}) \
+{str(self.__dict__)}")
 
     def save(self):
-        """Updates updated_at with current time when instance is changed"""
-        from models import storage
-        self.updated_at = datetime.now()
-        storage.new(self)
+        '''updates the public instance attribute updated_at'''
         storage.save()
+        self.updated_at = datetime.datetime.now()
 
     def to_dict(self):
-        """Convert instance into dict format"""
-        dct = self.__dict__.copy()
-        dct['__class__'] = self.__class__.__name__
-        for k in dct:
-            if type(dct[k]) is datetime:
-                dct[k] = dct[k].isoformat()
-        if '_sa_instance_state' in dct.keys():
-            del(dct['_sa_instance_state'])
-        return dct
-
-    def delete(self):
-        '''deletes the current instance from the storage'''
-        from models import storage
-        storage.delete(self)
-
+        '''returns a dictionary containing all keys/values of __dict__'''
+        object_dict = {}
+        for key in self.__dict__.keys():
+            if key not in ('created_at', 'updated_at'):
+                object_dict[key] = self.__dict__[key]
+            else:
+                object_dict[key] = datetime.datetime.isoformat(
+                    self.__dict__[key])
+        object_dict['__class__'] = self.__class__.__name__
+        return (object_dict)
